@@ -319,6 +319,19 @@ module.exports = function (grunt) {
 
     grunt.renameTask('regarde', 'watch');
 
+grunt.registerTask('eso-server-start', 'Start a custom web server.', function() {
+  grunt.log.writeln('Starting custom web server');
+
+  var app = require('./server/server.js');
+  var middleware = grunt.config('connect.livereload.options.middleware').call(this, require('express'));
+
+  for (var i=0; i<middleware.length; i++) {
+    app.use(middleware[i]);
+  }
+
+  app.listen(grunt.config('connect.options.port'));
+});
+
     grunt.registerTask('server', function (target) {
         if (target === 'dist') {
             return grunt.task.run(['build', 'open', 'connect:dist:keepalive']);
@@ -329,7 +342,8 @@ module.exports = function (grunt) {
             'concurrent:server',
             'neuter:app',
             'livereload-start',
-            'connect:livereload',
+            //'connect:livereload',
+            'eso-server-start',
             'open',
             'watch'
         ]);

@@ -1,6 +1,9 @@
 /*global Ember, DS */
 
-var App = window.App = Ember.Application.create();
+var App = window.App = Ember.Application.create({
+	LOG_TRANSITIONS: true,
+  query: ''
+});
 
 /* Order and include as you please. */
 // require('scripts/routes/*');
@@ -9,52 +12,123 @@ var App = window.App = Ember.Application.create();
 // require('scripts/views/*');
 
 App.Router.map(function () {
-  this.resource( 'index', { path: '/' } );
+  this.route('index', { path: '/' } );
+  this.route('clubs');
+  this.route('clubDetails', {path:'/clubs/:club_id'});
+  this.route('players');
+  this.route('playerDetails', {path:'/players/:player_id'});
 
-  this.resource( 'clubs');
-  this.resource( 'players');
+  /*this.resource( 'clubs', function(){
+  	this.route('details', {path:'/:club_id'});
+  });
+  this.resource( 'players', function(){
+  	this.route('details', {path:'/:player_id'});
+  });*/
 });
 
-App.Store = DS.Store.extend({
+DS.RESTAdapter.reopen({
+  namespace: 'api/v1'
+});
+
+DS.RESTSerializer.reopen({
+  keyForBelongsTo: function(type, name) {
+    if (type==App.Player && name=='club')
+      return 'clu_id';
+
+    var key = this.keyForAttributeName(type, name);
+
+    if (this.embeddedType(type, name)) {
+      return key;
+    }
+
+    return key + "_id";
+  }
+});
+
+/*App.Router.reopen({
+  location: 'history'
+});*/
+
+App.Store = DS.Store.extend({});
+
+App.Club = DS.Model.extend({
+  code: DS.attr('string'),
+  name: DS.attr('string'),
+
+	players: DS.hasMany('App.Player')
+});
+
+App.Player = DS.Model.extend({
+  code: DS.attr('string'),
+  firstname: DS.attr('string'),
+  lastname: DS.attr('string'),
+  fathername: DS.attr('string'),
+  mothername: DS.attr('string'),
+  birthdate: DS.attr('string'),
+  rating: DS.attr('number'),
+
+  club: DS.belongsTo('App.Club'),
+
+	fullname: function() {
+		return this.get('lastname') + ' ' + this.get('firstname');
+	}.property('lastname', 'firstname')
+	
+}
+);
+
+App.addObserver('query', function() {
+  console.log('query changed to', App.query);
+
+  // TODO : improve this!
+  setTimeout(function(){
+    App.handleURL('/');
+  }, 10);
 });
 
 App.IndexRoute = Ember.Route.extend({
   model: function () {
-    return [
-	];
+    return {
+      clubs: App.Club.find({q:App.query}),
+      players: App.Player.find({q:App.query})
+    };	
   }
 });
 
 App.ClubsRoute = Ember.Route.extend({
-  model: function () {
-    return {"clubs": [
-            {"id":429,"code":"00101","name":"ΠΑΝΑΘΗΝΑΙΚΟΣ ΑΟ"},
-            {"id":430,"code":"00102","name":"ΣΟ ΗΛΙΟΥΠΟΛΗΣ"},
-            {"id":431,"code":"00103","name":"ΣΟ ΚΑΛΛΙΘΕΑΣ"},
-            {"id":432,"code":"00104","name":"ΠΑΝΕΛΛΗΝΙΟΣ ΓΣ"},
-            {"id":433,"code":"00105","name":"ΕΦΕΤ"},
-            {"id":434,"code":"00106","name":"ΠΕΙΡΑΙΚΟΣ ΟΣ"},
-            {"id":435,"code":"00107","name":"ΣΟ ΑΜΠΕΛΟΚΗΠΩΝ"},
-            {"id":436,"code":"00108","name":"ΓΝΟ \"ΑΡΗΣ\" ΝΙΚΑΙΑΣ"},
-            {"id":437,"code":"00109","name":"ΣΟ ΑΓΙΑΣ  ΒΑΡΒΑΡΑΣ"},
-            {"id":438,"code":"00110","name":"ΣΟ ΠΑΓΚΡΑΤΙΟΥ"}
-        ]};
+	model: function() {
+		return App.Club.find();
+	}
+});
+
+App.ClubDetailsRoute = Ember.Route.extend({
+  model: function (params) {
+    return App.Club.find(params.club_id);
+  },
+  setupController: function(controller, club) {
+    controller.set('model', club);
+    controller.set('club_players', App.Player.query({clu_id:club.id}));
   }
 });
 
 App.PlayersRoute = Ember.Route.extend({
   model: function () {
-    return {"players": [
-        {"id":113291,"code":"00001","firstname":"ΓΕΩΡΓΙΟΣ","lastname":"ΠΑΠΑΝΙΚΟΛΑΟΥ","fathername":"ΑΘΑΝΑΣΙΟΣ","mothername":"ΓΕΩΡΓΙΑ","birthdate":"1950-12-31","rating":1340,"clu_id":610},
-        {"id":109799,"code":"00002","firstname":"ΠΑΥΛΟΣ","lastname":"ΜΟΝΑΝΤΕΡΟΣ","fathername":"ΧΑΡΑΛΑΜΠΟΣ","mothername":"ΑΙΚΑΤΕΡΙΝΗ","birthdate":"1936-12-31","rating":1830,"clu_id":610},
-        {"id":113438,"code":"00003","firstname":"ΧΡΗΣΤΟΣ","lastname":"ΠΑΠΑΦΩΤΟΠΟΥΛΟΣ","fathername":"ΠΕΡΙΚΛΗΣ","mothername":"ΑΝΑΣΤΑΣΙΑ","birthdate":"1956-12-31","rating":1755,"clu_id":610},
-        {"id":105794,"code":"00004","firstname":"ΣΤΑΥΡΟΣ","lastname":"ΚΟΝΤΟΣ","fathername":"ΒΑΣΙΛΕΙΟΣ","mothername":"ΒΑΣΙΛΙΚΗ","birthdate":"1951-12-31","rating":1660,"clu_id":610},
-        {"id":103000,"code":"00005","firstname":"ΜΙΛΤΙΑΔΗΣ","lastname":"ΙΩΑΝΝΙΔΗΣ","fathername":"ΙΩΣΗΦ","mothername":"ΚΥΡΙΑΚΗ","birthdate":null,"rating":1785,"clu_id":504},
-        {"id":104425,"code":"00006","firstname":"ΣΤΕΦΑΝΟΣ","lastname":"ΚΑΡΒΟΥΝΗΣ","fathername":"ΓΕΩΡΓΙΟΣ","mothername":"ΕΥΑΓΓΕΛΙΑ","birthdate":"1958-12-31","rating":1000,"clu_id":504},
-        {"id":99999,"code":"00007","firstname":"ΙΩΑΝΝΗΣ","lastname":"ΓΙΑΝΝΑΚΟΥΛΗΣ","fathername":"ΑΘΑΝΑΣΙΟΣ","mothername":"ΧΡΥΣΑΝΘΗ","birthdate":"1959-12-31","rating":1000,"clu_id":504},
-        {"id":113849,"code":"00008","firstname":"ΣΤΕΡΓΙΟΣ","lastname":"ΠΑΥΛΙΔΗΣ","fathername":"ΒΑΣΙΛΕΙΟΣ","mothername":"ΔΗΜΗΤΡΟΥΛΑ","birthdate":"1958-12-31","rating":1660,"clu_id":504},
-        {"id":106792,"code":"00009","firstname":"ΣΑΒΒΑΣ","lastname":"ΚΡΟΥΚΛΙΔΗΣ","fathername":"ΑΝΔΡΕΑΣ","mothername":"ΘΕΟΔΩΡΑ","birthdate":"1958-12-31","rating":1300,"clu_id":504},
-        {"id":118322,"code":"00010","firstname":"ΠΑΥΛΟΣ","lastname":"ΤΣΑΤΡΑΦΥΛΛΙΑΣ","fathername":"ΠΑΝΑΓΙΩΤΗΣ","mothername":"ΣΟΦΙΑ","birthdate":"1951-12-31","rating":2035,"clu_id":504}
-    ]};
+    return App.Player.find();
   }
+});
+
+App.PlayerDetailsRoute = Ember.Route.extend({
+  model: function (params) {
+    return App.Player.find(params.player_id);
+  }
+});
+
+Ember.Handlebars.helper('publicDate', function(value, options) {
+    if (!value)
+      return '-';
+
+    var parts = value.split('-');
+    if (parts.length!=3)
+      return value;
+
+    return parts[1] + '/' + parts[0];
 });

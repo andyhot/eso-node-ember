@@ -1,0 +1,9 @@
+<div class="hero-unit">
+    <h2>{{name}}</h2>
+
+    <ul>
+    	{{#each club_players}}
+    	<li>{{#linkTo 'playerDetails' .}}{{code}}{{/linkTo}} {{fullname}} ({{publicDate birthdate}}) {{rating}}</li>
+    	{{/each}}
+    </ul>
+</div>

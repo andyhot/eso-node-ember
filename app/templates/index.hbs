@@ -1,4 +1,17 @@
 <div class="hero-unit">
-    <h2>Search</h2>
-  <input type="search" />
+    {{view Ember.TextField valueBinding="App.query" placeholder="Search players and clubs"}}
+
+    <ul>
+    	{{#each clubs}}
+    	<li>{{#linkTo 'clubDetails' .}}{{code}}{{/linkTo}} {{name}}</li>
+    	{{/each}}
+    </ul>
+
+    <hr/>
+
+    <ul>
+    	{{#each players}}
+    	<li>{{#linkTo 'playerDetails' .}}{{code}}{{/linkTo}} {{fullname}} ({{publicDate birthdate}}) {{#linkTo 'clubDetails' club}}{{club.name}}{{/linkTo}} {{rating}}</li>
+    	{{/each}}
+    </ul>
 </div>

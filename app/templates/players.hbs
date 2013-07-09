@@ -1,8 +1,8 @@
 <div class="hero-unit">
     <h2>Players</h2>
     <ul>
-    	{{#each players}}
-    	<li>{{lastname}} {{firstname}}</li>
+    	{{#each model}}
+    	<li>{{#linkTo 'playerDetails' .}}{{code}}{{/linkTo}} {{fullname}} ({{publicDate birthdate}}) {{#linkTo 'clubDetails' club}}{{club.name}}{{/linkTo}} {{rating}}</li>
     	{{/each}}
     </ul>
 </div>
