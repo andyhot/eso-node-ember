@@ -1,8 +1,7 @@
 /*global Ember, DS */
 
 var App = window.App = Ember.Application.create({
-	LOG_TRANSITIONS: true,
-  query: ''
+	LOG_TRANSITIONS: true
 });
 
 /* Order and include as you please. */
@@ -76,20 +75,27 @@ App.Player = DS.Model.extend({
 }
 );
 
-App.addObserver('query', function() {
-  console.log('query changed to', App.query);
+App.IndexController = Ember.ObjectController.extend({
 
-  // TODO : improve this!
-  setTimeout(function(){
-    App.handleURL('/');
-  }, 10);
+  searchTerm: '',
+
+  searchTermDidChange: Ember.observer(function(controller, prop) {
+    console.log('changed', arguments);
+    /*this.notifyPropertyChange('clubs');
+    this.notifyPropertyChange('players');*/
+    this.set('clubs', App.Club.find({q:this.searchTerm}) );
+    this.set('players', App.Player.find({q:this.searchTerm}) );
+  }, 'searchTerm'),
+
+  clubs: null,
+
+  players: null
+
 });
 
 App.IndexRoute = Ember.Route.extend({
   model: function () {
     return {
-      clubs: App.Club.find({q:App.query}),
-      players: App.Player.find({q:App.query})
     };	
   }
 });

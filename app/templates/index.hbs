@@ -1,6 +1,5 @@
 <div class="hero-unit">
-    {{view Ember.TextField valueBinding="App.query" placeholder="Search players and clubs"}}
-
+    {{view Ember.TextField valueBinding="controller.searchTerm" placeholder="Search players and clubs"}}
     <ul>
     	{{#each clubs}}
     	<li>{{#linkTo 'clubDetails' .}}{{code}}{{/linkTo}} {{name}}</li>
