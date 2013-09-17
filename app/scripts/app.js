@@ -54,7 +54,7 @@ App.Club = DS.Model.extend({
   code: DS.attr('string'),
   name: DS.attr('string'),
 
-	players: DS.hasMany('App.Player')
+	players: DS.hasMany('player')
 });
 
 App.Player = DS.Model.extend({
@@ -66,7 +66,7 @@ App.Player = DS.Model.extend({
   birthdate: DS.attr('string'),
   rating: DS.attr('number'),
 
-  club: DS.belongsTo('App.Club'),
+  club: DS.belongsTo('club'),
 
 	fullname: function() {
 		return this.get('lastname') + ' ' + this.get('firstname');
@@ -80,11 +80,10 @@ App.IndexController = Ember.ObjectController.extend({
   searchTerm: '',
 
   searchTermDidChange: Ember.observer(function(controller, prop) {
-    console.log('changed', arguments);
-    /*this.notifyPropertyChange('clubs');
-    this.notifyPropertyChange('players');*/
-    this.set('clubs', App.Club.find({q:this.searchTerm}) );
-    this.set('players', App.Player.find({q:this.searchTerm}) );
+    //console.log('changed', arguments);
+
+    this.set('clubs', this.store.findQuery('club', {q:this.searchTerm}) );
+    this.set('players', this.store.findQuery('player', {q:this.searchTerm}) );
   }, 'searchTerm'),
 
   clubs: null,
@@ -102,29 +101,20 @@ App.IndexRoute = Ember.Route.extend({
 
 App.ClubsRoute = Ember.Route.extend({
 	model: function() {
-		return App.Club.find();
+		return this.store.find('club');
 	}
 });
 
 App.ClubDetailsRoute = Ember.Route.extend({
-  model: function (params) {
-    return App.Club.find(params.club_id);
-  },
   setupController: function(controller, club) {
     controller.set('model', club);
-    controller.set('club_players', App.Player.query({clu_id:club.id}));
+    controller.set('club_players', this.store.findQuery('player', {clu_id:club.id}));
   }
 });
 
 App.PlayersRoute = Ember.Route.extend({
   model: function () {
-    return App.Player.find();
-  }
-});
-
-App.PlayerDetailsRoute = Ember.Route.extend({
-  model: function (params) {
-    return App.Player.find(params.player_id);
+    return this.store.find('player');
   }
 });
 

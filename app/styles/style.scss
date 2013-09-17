@@ -2,7 +2,12 @@
 
 /* Put your CSS here */
 html, body {
-    margin: 20px;
+    margin: 4px;
+}
+
+.hero-unit.small {
+	padding: 20px;
+	margin-bottom: 20px;
 }
 
 .green {color:#00ff00;}
