@@ -1,5 +1,5 @@
-eso-node
-========
+eso-node-ember
+==============
 
 A node + ember.js app for browsing / searching greek chess players.
 
