@@ -337,16 +337,21 @@ grunt.registerTask('eso-server-start', 'Start a custom web server.', function() 
             return grunt.task.run(['build', 'open', 'connect:dist:keepalive']);
         }
 
-        grunt.task.run([
+        var tasksForServer = [
             'clean:server',
             'concurrent:server',
             'neuter:app',
             'livereload-start',
             //'connect:livereload',
-            'eso-server-start',
-            'open',
-            'watch'
-        ]);
+            'eso-server-start'
+        ];
+
+        if (!grunt.option('nobrowser')) {
+            tasksForServer.push('open');
+        }
+        tasksForServer.push('watch');            
+
+        grunt.task.run(tasksForServer);
     });
 
     grunt.registerTask('test', [
