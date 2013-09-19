@@ -6,4 +6,7 @@
     	<li>{{code}} {{#linkTo 'playerDetails' .}}{{fullname}}{{/linkTo}} ({{publicDate birthdate}}) <strong>{{rating}}</strong></li>
     	{{/each}}
     </ul>
+    {{#if showMore}}
+    <button {{action 'more'}}>Load more ...</button>
+    {{/if}}
 </div>

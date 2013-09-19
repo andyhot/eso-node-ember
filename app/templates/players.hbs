@@ -5,4 +5,5 @@
     	<li>{{code}} {{#linkTo 'playerDetails' .}}{{fullname}}{{/linkTo}} ({{publicDate birthdate}}) <strong>{{rating}}</strong> {{#linkTo 'clubDetails' clu_id}}{{clu_id.name}}{{/linkTo}}</li>
     	{{/each}}
     </ul>
+    <button {{action 'more'}}>Load more ...</button>
 </div>

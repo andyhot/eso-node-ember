@@ -103,19 +103,96 @@ App.IndexRoute = Ember.Route.extend({
 App.ClubsRoute = Ember.Route.extend({
 	model: function() {
 		return this.store.find('club');
-	}
+	},
+});
+
+App.ClubsController = Ember.ArrayController.extend({
+  sortProperties: ['code'],
+  sortAscending: true,
+
+  actions : {
+    more : function() {
+
+      var length = this.get('length');
+      var lastObject = this.objectAt(length-1);
+
+      this.store.find('club', {after:parseInt(lastObject.get('code')) || 0});
+
+    }
+  }
 });
 
 App.ClubDetailsRoute = Ember.Route.extend({
   setupController: function(controller, club) {
     controller.set('model', club);
-    controller.set('club_players', this.store.findQuery('player', {clu_id:club.id}));
+    controller.set('club_players', Ember.A([]));
+
+    this.store.findQuery('player', {clu_id:club.id}).then(function(items){
+      controller.appendItems(items);
+    });
+
+  }
+});
+
+App.ClubDetailsController = Ember.ObjectController.extend({
+  sortProperties: ['code'],
+  sortAscending: true,
+  showMore: true,
+
+  appendItems: function(items) {
+    window.items = items;
+    this.get('club_players').pushObjects(items.get('content'));
+
+    if (items.get('length')<10) {
+      this.set('showMore', false);
+    } else {
+      this.set('showMore', true);
+    }
+  },
+
+  actions : {
+    more : function() {
+
+      var controller = this;
+
+      var players = this.get('club_players'),
+          length = players.get('length');
+          lastObject = players.objectAt(length-1);
+
+      var moreFromClub = this.store.findQuery('player', 
+        {
+          clu_id:this.get('model').id, 
+          after:parseInt(lastObject.get('code')) || 0
+        }
+      ).then(function(items){
+        controller.appendItems(items);
+      });
+      
+
+    }
   }
 });
 
 App.PlayersRoute = Ember.Route.extend({
   model: function () {
     return this.store.find('player');
+  },
+  setupController: function(controller, model) {
+    controller.set('model', model);
+  }
+});
+
+App.PlayersController = Ember.ArrayController.extend({  
+  sortProperties: ['code'],
+  sortAscending: true,
+
+  actions: {
+    more : function() {
+      var length = this.get('length');
+      var lastObject = this.objectAt(length-1);
+
+      this.store.find('player', {after:lastObject.get('code')});
+    }
   }
 });
 

@@ -1,8 +1,9 @@
 <div class="hero-unit small">
     <h2>Clubs</h2>
     <ul>
-    	{{#each model}}
-    	<li>{{#linkTo 'clubDetails' .}}{{code}}{{/linkTo}} {{name}}</li>
+    	{{#each}}
+    	<li>{{code}} {{#linkTo 'clubDetails' .}}{{name}}{{/linkTo}}</li>
     	{{/each}}
     </ul>
+    <button {{action 'more'}}>Load more ...</button>
 </div>

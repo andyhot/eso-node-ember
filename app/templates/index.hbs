@@ -10,7 +10,7 @@
 
     <ul>
     	{{#each players}}
-    	<li>{{code}} {{#linkTo 'playerDetails' .}}{{fullname}}{{/linkTo}} ({{publicDate birthdate}}) <strong>{{rating}}</strong> {{#linkTo 'clubDetails' club}}{{club.name}}{{/linkTo}}</li>
+    	<li>{{code}} {{#linkTo 'playerDetails' .}}{{fullname}}{{/linkTo}} ({{publicDate birthdate}}) <strong>{{rating}}</strong> {{#linkTo 'clubDetails' clu_id}}{{clu_id.name}}{{/linkTo}}</li>
     	{{/each}}
     </ul>
 </div>

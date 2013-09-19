@@ -133,15 +133,16 @@ var api = {
 	handlePlayers: function(req, res, pool) {
 		var offset = esoUtils.asInt(req.query, 'offset');
 		var limit = esoUtils.asInt(req.query, 'limit', 10, 50);
+		var after_id = esoUtils.asInt(req.query, 'after');
 		var q = req.query.q;
 		
 		var hasQuery = q || q===null || q==='',
 			queryPart = '';
-		var qParams = [limit, offset];
+		var qParams = [after_id, limit, offset];
 
 		if (hasQuery) {
 			if (q && q.length>2) {
-				queryPart = 'AND lastname like $3 ';
+				queryPart = 'AND lastname like $4 ';
 				qParams.push('%' + q.toUpperCase() + '%');
 			} else {
 				// to small query - don't return any results
@@ -159,8 +160,8 @@ var api = {
 
 		pool.query(
 			'SELECT id, code, trim (from firstname) as firstname, trim (from lastname) as lastname, fathername, mothername, to_char(birthdate, \'YYYY-MM-DD\') as birthdate, rating, clu_id ' +
-			'FROM players WHERE code::integer<100000 ' + queryPart +
-			'ORDER BY code LIMIT $1 OFFSET $2', qParams, function(err, result) {
+			'FROM players WHERE code::integer<100000 AND code::integer>$1 ' + queryPart +
+			'ORDER BY code LIMIT $2 OFFSET $3', qParams, function(err, result) {
 			//eyes.inspect(result);
 			if (err) {
 				res.json({'err':err});
@@ -191,14 +192,15 @@ var api = {
 	handleClubs: function(req, res, pool) {
 		var offset = esoUtils.asInt(req.query, 'offset');
 		var limit = esoUtils.asInt(req.query, 'limit', 10, 50);
+		var after_id = esoUtils.asInt(req.query, 'after');
 		var q = req.query.q;
 		var hasQuery = q || q===null || q==='',
 			queryPart = '';
-		var qParams = [limit, offset];
+		var qParams = [after_id, limit, offset];
 
 		if (hasQuery) {
 			if (q && q.length>2) {
-				queryPart = 'AND name like $3 ';
+				queryPart = 'AND name like $4 ';
 				qParams.push('%' + q.toUpperCase() + '%');
 			} else {
 				queryPart = 'AND 1=2 ';
@@ -207,8 +209,8 @@ var api = {
 
 		pool.query(
 			'SELECT id, code, trim (from name) as name ' +
-			'FROM clubs WHERE greek=true ' + queryPart +
-			'ORDER BY code LIMIT $1 OFFSET $2', qParams, function(err, result) {
+			'FROM clubs WHERE greek=true AND code::integer>$1 ' + queryPart +
+			'ORDER BY code LIMIT $2 OFFSET $3', qParams, function(err, result) {
 			//eyes.inspect(result);
 			if (err) {
 				res.json({'err':err});
