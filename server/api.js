@@ -1,4 +1,25 @@
 var esoUtils = require('./utils.js');
+var _ = require('underscore');
+
+var queries = {
+	selectPlayer : function(pool, id, callback) {
+		pool.query(
+		    'SELECT id, code, trim (from firstname) as firstname, trim (from lastname) as lastname, fathername, mothername, to_char(birthdate, \'YYYY-MM-DD\') as birthdate, rating, clu_id ' +
+		    'FROM players WHERE id = $1', [id], callback);
+	},
+
+	selectClub : function(pool, id, callback) {
+		if (_.isArray(id)) {
+			pool.query(
+				'SELECT id, code, trim (from name) as name FROM clubs WHERE id IN (' + id.join(',') + ')',
+				[], callback);
+		} else {
+			pool.query(
+				'SELECT id, code, trim (from name) as name FROM clubs WHERE id = $1',
+				[id], callback);
+		}
+	}
+};
 
 var api = {
 
@@ -30,9 +51,7 @@ var api = {
 
 		  var id = esoUtils.asInt(request.params, 'id');
 
-		  pool.query(
-		    'SELECT id, code, trim (from firstname) as firstname, trim (from lastname) as lastname, fathername, mothername, to_char(birthdate, \'YYYY-MM-DD\') as birthdate, rating, clu_id ' +
-		    'FROM players WHERE id = $1', [id], function(err, result) {
+		  queries.selectPlayer(pool, id, function(err, result) {
 
 		    if (err) {
 		      response.json({'err':err});
@@ -40,7 +59,20 @@ var api = {
 		    }
 
 		    var rows = result.rows;
-		    response.json({player: rows.length===1 ? rows[0] : null});
+		    if (rows.length!==1) {
+		    	response.json({player: null});
+		    } else {
+		    	var player = rows[0];
+		    	// now add related club data
+		    	queries.selectClub(pool, player.clu_id, function(clubErr, clubResult) {
+		    		if (clubErr) {
+		    			response.json({player: player});
+		    		} else {
+		    			var clubRows = clubResult.rows;
+		    			response.json({player: player, clubs:clubRows[0]});
+		    		}
+		    	})			    
+			}
 		  });
 
 		});
@@ -49,9 +81,7 @@ var api = {
 
 			var id = esoUtils.asInt(request.params, 'id');
 
-			pool.query(
-				'SELECT id, code, trim (from name) as name ' +
-				'FROM clubs WHERE id = $1', [id], function(err, result) {
+			queries.selectClub(pool, id, function(err, result) {
 
 				if (err) {
 					response.json({'err':err});
@@ -137,8 +167,24 @@ var api = {
 				return;
 			}
 
-			var rows = result.rows;
-			res.json({players: rows});
+			var rows = result.rows || [];
+			var club_ids = _.uniq(_.pluck(rows, 'clu_id'));
+			var result = {players: rows};
+
+			if (club_ids.length===0) {
+				res.json(result);
+				return;
+			}
+
+			queries.selectClub(pool, club_ids, function(errClubs, resultClubs) {
+				if (errClubs) {
+					console.log(errClubs);
+				} else {
+					result['clubs'] = resultClubs.rows;
+				}
+				res.json(result);
+			});
+			
 		});
 	},
 

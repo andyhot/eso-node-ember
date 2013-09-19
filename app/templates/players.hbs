@@ -2,7 +2,7 @@
     <h2>Players</h2>
     <ul>
     	{{#each model}}
-    	<li>{{#linkTo 'playerDetails' .}}{{code}}{{/linkTo}} {{fullname}} ({{publicDate birthdate}}) {{#linkTo 'clubDetails' club}}{{club.name}}{{/linkTo}} {{rating}}</li>
+    	<li>{{code}} {{#linkTo 'playerDetails' .}}{{fullname}}{{/linkTo}} ({{publicDate birthdate}}) <strong>{{rating}}</strong> {{#linkTo 'clubDetails' clu_id}}{{clu_id.name}}{{/linkTo}}</li>
     	{{/each}}
     </ul>
 </div>

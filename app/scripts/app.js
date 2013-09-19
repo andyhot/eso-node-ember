@@ -65,7 +65,8 @@ App.Player = DS.Model.extend({
   mothername: DS.attr('string'),
   birthdate: DS.attr('string'),
   rating: DS.attr('number'),
-
+  //clu_id: DS.attr('number'),
+  clu_id: DS.belongsTo('club'),
   club: DS.belongsTo('club'),
 
 	fullname: function() {

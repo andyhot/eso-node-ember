@@ -3,7 +3,7 @@
 
     <ul>
     	{{#each club_players}}
-    	<li>{{#linkTo 'playerDetails' .}}{{code}}{{/linkTo}} {{fullname}} ({{publicDate birthdate}}) {{rating}}</li>
+    	<li>{{code}} {{#linkTo 'playerDetails' .}}{{fullname}}{{/linkTo}} ({{publicDate birthdate}}) <strong>{{rating}}</strong></li>
     	{{/each}}
     </ul>
 </div>
