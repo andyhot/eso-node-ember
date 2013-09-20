@@ -1,7 +1,16 @@
 /*global Ember, DS */
 
 var App = window.App = Ember.Application.create({
-	LOG_TRANSITIONS: true
+  // ember related
+	LOG_TRANSITIONS: true,
+  LOG_BINDINGS: true,
+  LOG_VIEW_LOOKUPS: true,
+  LOG_STACKTRACE_ON_DEPRECATION: true,
+  LOG_VERSION: true,
+  debugMode: true,
+
+  // app related
+  RESULTS_PER_PAGE: 10
 });
 
 /* Order and include as you please. */
@@ -76,28 +85,85 @@ App.Player = DS.Model.extend({
 }
 );
 
+App.IndexRoute = Ember.Route.extend({
+  setupController: function(controller, model) {
+    controller.set('clubs', Ember.A([]));
+    controller.set('players', Ember.A([]));
+  }
+});
+
 App.IndexController = Ember.ObjectController.extend({
 
   searchTerm: '',
 
-  searchTermDidChange: Ember.observer(function(controller, prop) {
-    //console.log('changed', arguments);
+  clubs: null,
+  players: null,
+  showMoreClubs: false,
+  showMorePlayers: false,
 
-    this.set('clubs', this.store.findQuery('club', {q:this.searchTerm}) );
-    this.set('players', this.store.findQuery('player', {q:this.searchTerm}) );
+  appendClubs: function(items, append) {
+    if (append)
+      this.get('clubs').pushObjects(items.get('content'));
+    else
+      this.set('clubs', items);
+
+    this.set('showMoreClubs', items.get('length') === App.RESULTS_PER_PAGE);
+  },
+
+  appendPlayers: function(items, append) {
+    if (append)
+      this.get('players').pushObjects(items.get('content'));
+    else
+      this.set('players', items);
+
+    this.set('showMorePlayers', items.get('length') === App.RESULTS_PER_PAGE);
+  },
+
+  searchTermDidChange: Ember.observer(function(controller, prop) {
+    this.store.findQuery('club', {q:this.searchTerm}).then(function(items){
+      controller.appendClubs(items);
+    });
+
+    this.store.findQuery('player', {q:this.searchTerm}).then(function(items){
+      controller.appendPlayers(items);
+    });
   }, 'searchTerm'),
 
-  clubs: null,
+  actions : {
+    moreClubs: function() {
 
-  players: null
+      var controller = this,
+          clubs = this.get('clubs'),
+          length = clubs.get('length');
+          lastObject = clubs.objectAt(length-1);
 
-});
+      this.store.findQuery('club', 
+        {
+          q:this.searchTerm,
+          after:parseInt(lastObject.get('code')) || 0
+        }
+      ).then(function(items){
+        controller.appendClubs(items, true);
+      });
+    },
+    morePlayers: function() {
 
-App.IndexRoute = Ember.Route.extend({
-  model: function () {
-    return {
-    };	
+      var controller = this,
+          players = this.get('players'),
+          length = players.get('length');
+          lastObject = players.objectAt(length-1);
+
+      this.store.findQuery('player', 
+        {
+          q:this.searchTerm, 
+          after:parseInt(lastObject.get('code')) || 0
+        }
+      ).then(function(items){
+        controller.appendPlayers(items, true);
+      });
+    }
   }
+
 });
 
 App.ClubsRoute = Ember.Route.extend({
@@ -140,14 +206,9 @@ App.ClubDetailsController = Ember.ObjectController.extend({
   showMore: true,
 
   appendItems: function(items) {
-    window.items = items;
     this.get('club_players').pushObjects(items.get('content'));
 
-    if (items.get('length')<10) {
-      this.set('showMore', false);
-    } else {
-      this.set('showMore', true);
-    }
+    this.set('showMore', items.get('length') === App.RESULTS_PER_PAGE);
   },
 
   actions : {
@@ -166,8 +227,7 @@ App.ClubDetailsController = Ember.ObjectController.extend({
         }
       ).then(function(items){
         controller.appendItems(items);
-      });
-      
+      });      
 
     }
   }
