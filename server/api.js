@@ -1,4 +1,25 @@
 var esoUtils = require('./utils.js');
+var _ = require('underscore');
+
+var queries = {
+	selectPlayer : function(pool, id, callback) {
+		pool.query(
+		    'SELECT id, code, trim (from firstname) as firstname, trim (from lastname) as lastname, fathername, mothername, to_char(birthdate, \'YYYY-MM-DD\') as birthdate, rating, clu_id ' +
+		    'FROM players WHERE id = $1', [id], callback);
+	},
+
+	selectClub : function(pool, id, callback) {
+		if (_.isArray(id)) {
+			pool.query(
+				'SELECT id, code, trim (from name) as name FROM clubs WHERE id IN (' + id.join(',') + ')',
+				[], callback);
+		} else {
+			pool.query(
+				'SELECT id, code, trim (from name) as name FROM clubs WHERE id = $1',
+				[id], callback);
+		}
+	}
+};
 
 var api = {
 
@@ -30,9 +51,7 @@ var api = {
 
 		  var id = esoUtils.asInt(request.params, 'id');
 
-		  pool.query(
-		    'SELECT id, code, trim (from firstname) as firstname, trim (from lastname) as lastname, fathername, mothername, to_char(birthdate, \'YYYY-MM-DD\') as birthdate, rating, clu_id ' +
-		    'FROM players WHERE id = $1', [id], function(err, result) {
+		  queries.selectPlayer(pool, id, function(err, result) {
 
 		    if (err) {
 		      response.json({'err':err});
@@ -40,7 +59,20 @@ var api = {
 		    }
 
 		    var rows = result.rows;
-		    response.json({player: rows.length===1 ? rows[0] : null});
+		    if (rows.length!==1) {
+		    	response.json({player: null});
+		    } else {
+		    	var player = rows[0];
+		    	// now add related club data
+		    	queries.selectClub(pool, player.clu_id, function(clubErr, clubResult) {
+		    		if (clubErr) {
+		    			response.json({player: player});
+		    		} else {
+		    			var clubRows = clubResult.rows;
+		    			response.json({player: player, clubs:clubRows[0]});
+		    		}
+		    	})			    
+			}
 		  });
 
 		});
@@ -49,9 +81,7 @@ var api = {
 
 			var id = esoUtils.asInt(request.params, 'id');
 
-			pool.query(
-				'SELECT id, code, trim (from name) as name ' +
-				'FROM clubs WHERE id = $1', [id], function(err, result) {
+			queries.selectClub(pool, id, function(err, result) {
 
 				if (err) {
 					response.json({'err':err});
@@ -103,15 +133,16 @@ var api = {
 	handlePlayers: function(req, res, pool) {
 		var offset = esoUtils.asInt(req.query, 'offset');
 		var limit = esoUtils.asInt(req.query, 'limit', 10, 50);
+		var after_id = esoUtils.asInt(req.query, 'after');
 		var q = req.query.q;
 		
 		var hasQuery = q || q===null || q==='',
 			queryPart = '';
-		var qParams = [limit, offset];
+		var qParams = [after_id, limit, offset];
 
 		if (hasQuery) {
 			if (q && q.length>2) {
-				queryPart = 'AND lastname like $3 ';
+				queryPart = 'AND lastname like $4 ';
 				qParams.push('%' + q.toUpperCase() + '%');
 			} else {
 				// to small query - don't return any results
@@ -129,30 +160,47 @@ var api = {
 
 		pool.query(
 			'SELECT id, code, trim (from firstname) as firstname, trim (from lastname) as lastname, fathername, mothername, to_char(birthdate, \'YYYY-MM-DD\') as birthdate, rating, clu_id ' +
-			'FROM players WHERE code::integer<100000 ' + queryPart +
-			'ORDER BY code LIMIT $1 OFFSET $2', qParams, function(err, result) {
+			'FROM players WHERE code::integer<100000 AND code::integer>$1 ' + queryPart +
+			'ORDER BY code LIMIT $2 OFFSET $3', qParams, function(err, result) {
 			//eyes.inspect(result);
 			if (err) {
 				res.json({'err':err});
 				return;
 			}
 
-			var rows = result.rows;
-			res.json({players: rows});
+			var rows = result.rows || [];
+			var club_ids = _.uniq(_.pluck(rows, 'clu_id'));
+			var result = {players: rows};
+
+			if (club_ids.length===0) {
+				res.json(result);
+				return;
+			}
+
+			queries.selectClub(pool, club_ids, function(errClubs, resultClubs) {
+				if (errClubs) {
+					console.log(errClubs);
+				} else {
+					result['clubs'] = resultClubs.rows;
+				}
+				res.json(result);
+			});
+			
 		});
 	},
 
 	handleClubs: function(req, res, pool) {
 		var offset = esoUtils.asInt(req.query, 'offset');
 		var limit = esoUtils.asInt(req.query, 'limit', 10, 50);
+		var after_id = esoUtils.asInt(req.query, 'after');
 		var q = req.query.q;
 		var hasQuery = q || q===null || q==='',
 			queryPart = '';
-		var qParams = [limit, offset];
+		var qParams = [after_id, limit, offset];
 
 		if (hasQuery) {
 			if (q && q.length>2) {
-				queryPart = 'AND name like $3 ';
+				queryPart = 'AND name like $4 ';
 				qParams.push('%' + q.toUpperCase() + '%');
 			} else {
 				queryPart = 'AND 1=2 ';
@@ -161,8 +209,8 @@ var api = {
 
 		pool.query(
 			'SELECT id, code, trim (from name) as name ' +
-			'FROM clubs WHERE greek=true ' + queryPart +
-			'ORDER BY code LIMIT $1 OFFSET $2', qParams, function(err, result) {
+			'FROM clubs WHERE greek=true AND code::integer>$1 ' + queryPart +
+			'ORDER BY code LIMIT $2 OFFSET $3', qParams, function(err, result) {
 			//eyes.inspect(result);
 			if (err) {
 				res.json({'err':err});

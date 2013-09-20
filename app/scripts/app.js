@@ -1,7 +1,16 @@
 /*global Ember, DS */
 
 var App = window.App = Ember.Application.create({
-	LOG_TRANSITIONS: true
+  // ember related
+	LOG_TRANSITIONS: true,
+  LOG_BINDINGS: true,
+  LOG_VIEW_LOOKUPS: true,
+  LOG_STACKTRACE_ON_DEPRECATION: true,
+  LOG_VERSION: true,
+  debugMode: true,
+
+  // app related
+  RESULTS_PER_PAGE: 10
 });
 
 /* Order and include as you please. */
@@ -65,7 +74,8 @@ App.Player = DS.Model.extend({
   mothername: DS.attr('string'),
   birthdate: DS.attr('string'),
   rating: DS.attr('number'),
-
+  //clu_id: DS.attr('number'),
+  clu_id: DS.belongsTo('club'),
   club: DS.belongsTo('club'),
 
 	fullname: function() {
@@ -75,46 +85,174 @@ App.Player = DS.Model.extend({
 }
 );
 
+App.IndexRoute = Ember.Route.extend({
+  setupController: function(controller, model) {
+    controller.set('clubs', Ember.A([]));
+    controller.set('players', Ember.A([]));
+  }
+});
+
 App.IndexController = Ember.ObjectController.extend({
 
   searchTerm: '',
 
-  searchTermDidChange: Ember.observer(function(controller, prop) {
-    //console.log('changed', arguments);
+  clubs: null,
+  players: null,
+  showMoreClubs: false,
+  showMorePlayers: false,
 
-    this.set('clubs', this.store.findQuery('club', {q:this.searchTerm}) );
-    this.set('players', this.store.findQuery('player', {q:this.searchTerm}) );
+  appendClubs: function(items, append) {
+    if (append)
+      this.get('clubs').pushObjects(items.get('content'));
+    else
+      this.set('clubs', items);
+
+    this.set('showMoreClubs', items.get('length') === App.RESULTS_PER_PAGE);
+  },
+
+  appendPlayers: function(items, append) {
+    if (append)
+      this.get('players').pushObjects(items.get('content'));
+    else
+      this.set('players', items);
+
+    this.set('showMorePlayers', items.get('length') === App.RESULTS_PER_PAGE);
+  },
+
+  searchTermDidChange: Ember.observer(function(controller, prop) {
+    this.store.findQuery('club', {q:this.searchTerm}).then(function(items){
+      controller.appendClubs(items);
+    });
+
+    this.store.findQuery('player', {q:this.searchTerm}).then(function(items){
+      controller.appendPlayers(items);
+    });
   }, 'searchTerm'),
 
-  clubs: null,
+  actions : {
+    moreClubs: function() {
 
-  players: null
+      var controller = this,
+          clubs = this.get('clubs'),
+          length = clubs.get('length');
+          lastObject = clubs.objectAt(length-1);
 
-});
+      this.store.findQuery('club', 
+        {
+          q:this.searchTerm,
+          after:parseInt(lastObject.get('code')) || 0
+        }
+      ).then(function(items){
+        controller.appendClubs(items, true);
+      });
+    },
+    morePlayers: function() {
 
-App.IndexRoute = Ember.Route.extend({
-  model: function () {
-    return {
-    };	
+      var controller = this,
+          players = this.get('players'),
+          length = players.get('length');
+          lastObject = players.objectAt(length-1);
+
+      this.store.findQuery('player', 
+        {
+          q:this.searchTerm, 
+          after:parseInt(lastObject.get('code')) || 0
+        }
+      ).then(function(items){
+        controller.appendPlayers(items, true);
+      });
+    }
   }
+
 });
 
 App.ClubsRoute = Ember.Route.extend({
 	model: function() {
 		return this.store.find('club');
-	}
+	},
+});
+
+App.ClubsController = Ember.ArrayController.extend({
+  sortProperties: ['code'],
+  sortAscending: true,
+
+  actions : {
+    more : function() {
+
+      var length = this.get('length');
+      var lastObject = this.objectAt(length-1);
+
+      this.store.find('club', {after:parseInt(lastObject.get('code')) || 0});
+
+    }
+  }
 });
 
 App.ClubDetailsRoute = Ember.Route.extend({
   setupController: function(controller, club) {
     controller.set('model', club);
-    controller.set('club_players', this.store.findQuery('player', {clu_id:club.id}));
+    controller.set('club_players', Ember.A([]));
+
+    this.store.findQuery('player', {clu_id:club.id}).then(function(items){
+      controller.appendItems(items);
+    });
+
+  }
+});
+
+App.ClubDetailsController = Ember.ObjectController.extend({
+  sortProperties: ['code'],
+  sortAscending: true,
+  showMore: true,
+
+  appendItems: function(items) {
+    this.get('club_players').pushObjects(items.get('content'));
+
+    this.set('showMore', items.get('length') === App.RESULTS_PER_PAGE);
+  },
+
+  actions : {
+    more : function() {
+
+      var controller = this;
+
+      var players = this.get('club_players'),
+          length = players.get('length');
+          lastObject = players.objectAt(length-1);
+
+      var moreFromClub = this.store.findQuery('player', 
+        {
+          clu_id:this.get('model').id, 
+          after:parseInt(lastObject.get('code')) || 0
+        }
+      ).then(function(items){
+        controller.appendItems(items);
+      });      
+
+    }
   }
 });
 
 App.PlayersRoute = Ember.Route.extend({
   model: function () {
     return this.store.find('player');
+  },
+  setupController: function(controller, model) {
+    controller.set('model', model);
+  }
+});
+
+App.PlayersController = Ember.ArrayController.extend({  
+  sortProperties: ['code'],
+  sortAscending: true,
+
+  actions: {
+    more : function() {
+      var length = this.get('length');
+      var lastObject = this.objectAt(length-1);
+
+      this.store.find('player', {after:lastObject.get('code')});
+    }
   }
 });
 

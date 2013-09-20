@@ -2,15 +2,21 @@
     {{view Ember.TextField valueBinding="controller.searchTerm" placeholder="Search players and clubs"}}
     <ul>
     	{{#each clubs}}
-    	<li>{{#linkTo 'clubDetails' .}}{{code}}{{/linkTo}} {{name}}</li>
+    	<li>{{code}} {{#linkTo 'clubDetails' .}}{{name}}{{/linkTo}}</li>
     	{{/each}}
     </ul>
+    {{#if showMoreClubs}}
+    <button {{action 'moreClubs'}}>Load more ...</button>
+    {{/if}}
 
     <hr/>
 
     <ul>
     	{{#each players}}
-    	<li>{{#linkTo 'playerDetails' .}}{{code}}{{/linkTo}} {{fullname}} ({{publicDate birthdate}}) {{#linkTo 'clubDetails' club}}{{club.name}}{{/linkTo}} {{rating}}</li>
+    	<li>{{code}} {{#linkTo 'playerDetails' .}}{{fullname}}{{/linkTo}} ({{publicDate birthdate}}) <strong>{{rating}}</strong> {{#linkTo 'clubDetails' clu_id}}{{clu_id.name}}{{/linkTo}}</li>
     	{{/each}}
     </ul>
+    {{#if showMorePlayers}}
+    <button {{action 'morePlayers'}}>Load more ...</button>
+    {{/if}}
 </div>
