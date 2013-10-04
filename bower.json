@@ -1,12 +1,16 @@
 {
-  "name": "ember",
+  "name": "eso-node-ember",
   "version": "0.1.0",
   "dependencies": {
     "jquery": "~1.9.1",
     "handlebars": "1.0.0",
-    "ember": "1.0.0",
-    "ember-data": "1.0.0-beta.2",
+    "ember-canary": "http://builds.emberjs.com/canary/ember.js",
+    "ember-data-canary": "http://builds.emberjs.com/canary/ember-data.js",
     "bootstrap-sass": "~2.3.1"
+  },
+  "stable-ember-dependencies": {
+    "ember": "1.0.0",
+    "ember-data": "1.0.0-beta.2"
   },
   "devDependencies": {}
 }
