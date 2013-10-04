@@ -168,11 +168,16 @@ App.IndexController = Ember.ObjectController.extend({
 
 App.ClubsRoute = Ember.Route.extend({
 	model: function() {
-		return this.store.find('club');
+		//return this.store.find('club');
+    return $.getJSON('/api/v1/clubs');
 	},
+  setupController: function(controller, model){
+    console.log('1', model);
+    controller.set('model', model);
+  }
 });
 
-App.ClubsController = Ember.ArrayController.extend({
+App.ClubsController = Ember.ObjectController.extend({
   sortProperties: ['code'],
   sortAscending: true,
 
