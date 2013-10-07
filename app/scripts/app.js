@@ -59,6 +59,76 @@ DS.RESTSerializer.reopen({
 
 App.Store = DS.Store.extend({});
 
+App.IO = {
+  getClub : function(id) {
+    return $.getJSON('/api/v1/clubs/' + id);
+  },
+  getClubs : function(data) {
+    return $.getJSON('/api/v1/clubs', data);
+  },
+  getPlayer : function(id) {
+    return $.getJSON('/api/v1/players/' + id);
+  },
+  getPlayers : function(data) {
+    return $.getJSON('/api/v1/players', data);
+  }
+};
+
+App.SClub = Ember.Object.extend({
+  
+});
+
+App.SPlayer = Ember.Object.extend({
+  fullname: function() {
+    return this.get('lastname') + ' ' + this.get('firstname');
+  }.property('lastname', 'firstname')
+});
+
+App.SClub.reopenClass({
+  loadFromIO : function(id) {
+    var instance = this.create({id:id});
+
+    App.IO.getClub(id).then(function(data){
+      instance.setProperties(data.club);
+    }); 
+
+    return instance;
+  }
+});
+
+App.SPlayer.reopenClass({
+  loadFromIO : function(id) {
+    var instance = this.create({id:id});
+    var self = this;
+    App.IO.getPlayer(id).then(function(data){
+      self.createWithClub(data.player, data.clubs, instance);
+    }); 
+
+    return instance;
+  },
+
+  createWithClub : function(item, clubs, instance) {
+    if (!instance)
+      instance = this.create(item);
+    else
+      instance.setProperties(item);
+
+    if (item.clu_id && clubs) {
+      console.log('looking for club', item.clu_id, clubs);
+      for(var i=0; i<clubs.length; i++) {
+        if (item.clu_id==clubs[i].id) {
+          var clubInstance = App.SClub.create(clubs[i]);
+          instance.set('clu_id', clubInstance);
+          console.log(clubInstance);
+          break;
+        }
+      }
+    }
+
+    return instance;
+  }
+});
+
 App.Club = DS.Model.extend({
   code: DS.attr('string'),
   name: DS.attr('string'),
@@ -168,37 +238,59 @@ App.IndexController = Ember.ObjectController.extend({
 
 App.ClubsRoute = Ember.Route.extend({
 	model: function() {
-		//return this.store.find('club');
-    return $.getJSON('/api/v1/clubs');
 	},
   setupController: function(controller, model){
-    console.log('1', model);
-    controller.set('model', model);
+    controller.set('clubs', Ember.A());
+
+    App.IO.getClubs().then(function(data){
+      controller.appendClubs(data.clubs);
+    });
   }
 });
 
 App.ClubsController = Ember.ObjectController.extend({
-  sortProperties: ['code'],
-  sortAscending: true,
+  clubs: Ember.A(),
+  showMoreClubs: true,
+
+  appendClubs: function(items) {
+    var objItems = [];
+    for (var i = 0; i<items.length; i++) {
+      objItems.push(App.SClub.create(items[i]));
+    }
+
+    this.get('clubs').pushObjects(objItems);
+    this.set('showMoreClubs', items.length === App.RESULTS_PER_PAGE);
+  },
 
   actions : {
     more : function() {
 
-      var length = this.get('length');
-      var lastObject = this.objectAt(length-1);
+      var clubs = this.get('clubs');
 
-      this.store.find('club', {after:parseInt(lastObject.get('code')) || 0});
+      var length = clubs.length;
+      var lastObject = clubs[length-1];
+      var controller = this;
+
+      App.IO.getClubs({after: parseInt(lastObject.code) || 0}).then(function(data){
+        controller.appendClubs(data.clubs, true);
+      });
 
     }
   }
 });
 
 App.ClubDetailsRoute = Ember.Route.extend({
+  model: function(params){
+    return App.SClub.loadFromIO(params.club_id);
+  },
   setupController: function(controller, club) {
-    controller.set('model', club);
-    controller.set('club_players', Ember.A([]));
+    // when from linkTo, data is from club instance used in link
+    // when from reload, data is from model() function
 
-    this.store.findQuery('player', {clu_id:club.id}).then(function(items){
+    controller.set('model', club);
+    controller.set('club_players', Ember.A());
+
+    App.IO.getPlayers({clu_id:club.id}).then(function(items){
       controller.appendItems(items);
     });
 
@@ -206,14 +298,20 @@ App.ClubDetailsRoute = Ember.Route.extend({
 });
 
 App.ClubDetailsController = Ember.ObjectController.extend({
-  sortProperties: ['code'],
-  sortAscending: true,
+  club_players: Ember.A(),
   showMore: true,
 
-  appendItems: function(items) {
-    this.get('club_players').pushObjects(items.get('content'));
+  appendItems: function(data) {
 
-    this.set('showMore', items.get('length') === App.RESULTS_PER_PAGE);
+    var items = data.players;
+    var objItems = [];
+    for (var i = 0; i<items.length; i++) {
+      objItems.push(App.SPlayer.createWithClub(items[i], data.clubs));
+    }
+
+    this.get('club_players').pushObjects(objItems);
+
+    this.set('showMore', items.length === App.RESULTS_PER_PAGE);
   },
 
   actions : {
@@ -222,13 +320,13 @@ App.ClubDetailsController = Ember.ObjectController.extend({
       var controller = this;
 
       var players = this.get('club_players'),
-          length = players.get('length');
-          lastObject = players.objectAt(length-1);
+          length = players.length;
+          lastObject = players[length-1];
 
-      var moreFromClub = this.store.findQuery('player', 
+      App.IO.getPlayers(
         {
           clu_id:this.get('model').id, 
-          after:parseInt(lastObject.get('code')) || 0
+          after:parseInt(lastObject.code) || 0
         }
       ).then(function(items){
         controller.appendItems(items);
@@ -240,24 +338,56 @@ App.ClubDetailsController = Ember.ObjectController.extend({
 
 App.PlayersRoute = Ember.Route.extend({
   model: function () {
-    return this.store.find('player');
   },
   setupController: function(controller, model) {
-    controller.set('model', model);
+    controller.set('players', Ember.A());
+
+    App.IO.getPlayers().then(function(data){
+      controller.appendPlayers(data);
+    });
   }
 });
 
-App.PlayersController = Ember.ArrayController.extend({  
-  sortProperties: ['code'],
-  sortAscending: true,
+App.PlayersController = Ember.ObjectController.extend({  
+  players: Ember.A(),
+  showMorePlayers: true,
+
+  appendPlayers: function(data) {
+    var items = data.players;
+    var objItems = [];
+    for (var i = 0; i<items.length; i++) {
+      objItems.push(App.SPlayer.createWithClub(items[i], data.clubs));
+    }
+
+    this.get('players').pushObjects(objItems);
+    this.set('showMorePlayers', items.length === App.RESULTS_PER_PAGE);
+  },
 
   actions: {
     more : function() {
-      var length = this.get('length');
-      var lastObject = this.objectAt(length-1);
+      var players = this.get('players');
 
-      this.store.find('player', {after:lastObject.get('code')});
+      var length = players.length;
+      var lastObject = players[length-1];
+      var controller = this;
+
+      App.IO.getPlayers({after: parseInt(lastObject.code) || 0}).then(function(data){
+        controller.appendPlayers(data, true);
+      });
+
     }
+  }
+});
+
+App.PlayerDetailsRoute = Ember.Route.extend({
+  model: function(params){
+    console.log('player model from route')
+    return App.SPlayer.loadFromIO(params.player_id);
+  },
+  setupController: function(controller, player) {
+    console.log(player);
+    window.aaa=player;
+    controller.set('model', player);
   }
 });
 

@@ -1,6 +1,8 @@
 <div class="hero-unit small">
+	{{#if code}}
     <h2>{{fullname}}</h2>
     <p>
     	{{code}} {{fullname}} ({{publicDate birthdate}}) <strong>{{rating}}</strong> {{#linkTo 'clubDetails' clu_id}}{{clu_id.name}}{{/linkTo}}
     </p>
+    {{/if}}
 </div>
