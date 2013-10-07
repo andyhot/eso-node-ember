@@ -69,7 +69,7 @@ var api = {
 		    			response.json({player: player});
 		    		} else {
 		    			var clubRows = clubResult.rows;
-		    			response.json({player: player, clubs:clubRows[0]});
+		    			response.json({player: player, clubs:clubRows});
 		    		}
 		    	})			    
 			}
