@@ -1,4 +1,4 @@
-/*global Ember, DS */
+/*global Ember*/
 
 var App = window.App = Ember.Application.create({
   // ember related
@@ -34,30 +34,9 @@ App.Router.map(function () {
   });*/
 });
 
-DS.RESTAdapter.reopen({
-  namespace: 'api/v1'
-});
-
-DS.RESTSerializer.reopen({
-  keyForBelongsTo: function(type, name) {
-    if (type==App.Player && name=='club')
-      return 'clu_id';
-
-    var key = this.keyForAttributeName(type, name);
-
-    if (this.embeddedType(type, name)) {
-      return key;
-    }
-
-    return key + "_id";
-  }
-});
-
 /*App.Router.reopen({
   location: 'history'
 });*/
-
-App.Store = DS.Store.extend({});
 
 App.IO = {
   getClub : function(id) {
@@ -74,17 +53,17 @@ App.IO = {
   }
 };
 
-App.SClub = Ember.Object.extend({
+App.Club = Ember.Object.extend({
   
 });
 
-App.SPlayer = Ember.Object.extend({
+App.Player = Ember.Object.extend({
   fullname: function() {
     return this.get('lastname') + ' ' + this.get('firstname');
   }.property('lastname', 'firstname')
 });
 
-App.SClub.reopenClass({
+App.Club.reopenClass({
   loadFromIO : function(id) {
     var instance = this.create({id:id});
 
@@ -93,10 +72,19 @@ App.SClub.reopenClass({
     }); 
 
     return instance;
+  },
+
+  createMany : function(data) {
+    var items = data.clubs;
+    var objItems = [];
+    for (var i = 0; i<items.length; i++) {
+      objItems.push(this.create(items[i]));
+    }
+    return objItems;
   }
 });
 
-App.SPlayer.reopenClass({
+App.Player.reopenClass({
   loadFromIO : function(id) {
     var instance = this.create({id:id});
     var self = this;
@@ -114,51 +102,25 @@ App.SPlayer.reopenClass({
       instance.setProperties(item);
 
     if (item.clu_id && clubs) {
-      console.log('looking for club', item.clu_id, clubs);
       for(var i=0; i<clubs.length; i++) {
         if (item.clu_id==clubs[i].id) {
-          var clubInstance = App.SClub.create(clubs[i]);
+          var clubInstance = App.Club.create(clubs[i]);
           instance.set('clu_id', clubInstance);
-          console.log(clubInstance);
           break;
         }
       }
     }
 
     return instance;
-  }
-});
+  },
 
-App.Club = DS.Model.extend({
-  code: DS.attr('string'),
-  name: DS.attr('string'),
-
-	players: DS.hasMany('player')
-});
-
-App.Player = DS.Model.extend({
-  code: DS.attr('string'),
-  firstname: DS.attr('string'),
-  lastname: DS.attr('string'),
-  fathername: DS.attr('string'),
-  mothername: DS.attr('string'),
-  birthdate: DS.attr('string'),
-  rating: DS.attr('number'),
-  //clu_id: DS.attr('number'),
-  clu_id: DS.belongsTo('club'),
-  club: DS.belongsTo('club'),
-
-	fullname: function() {
-		return this.get('lastname') + ' ' + this.get('firstname');
-	}.property('lastname', 'firstname')
-	
-}
-);
-
-App.IndexRoute = Ember.Route.extend({
-  setupController: function(controller, model) {
-    controller.set('clubs', Ember.A([]));
-    controller.set('players', Ember.A([]));
+  createMany : function(data) {
+      var items = data.players;
+      var objItems = [];
+      for (var i = 0; i<items.length; i++) {
+        objItems.push(App.Player.createWithClub(items[i], data.clubs));
+      }
+      return objItems;
   }
 });
 
@@ -171,9 +133,9 @@ App.IndexController = Ember.ObjectController.extend({
   showMoreClubs: false,
   showMorePlayers: false,
 
-  appendClubs: function(items, append) {
+  appendClubs: function(items, append) {    
     if (append)
-      this.get('clubs').pushObjects(items.get('content'));
+      this.get('clubs').pushObjects(items);
     else
       this.set('clubs', items);
 
@@ -182,7 +144,7 @@ App.IndexController = Ember.ObjectController.extend({
 
   appendPlayers: function(items, append) {
     if (append)
-      this.get('players').pushObjects(items.get('content'));
+      this.get('players').pushObjects(items);
     else
       this.set('players', items);
 
@@ -190,12 +152,13 @@ App.IndexController = Ember.ObjectController.extend({
   },
 
   searchTermDidChange: Ember.observer(function(controller, prop) {
-    this.store.findQuery('club', {q:this.searchTerm}).then(function(items){
-      controller.appendClubs(items);
+
+    App.IO.getClubs({q:this.searchTerm}).then(function(data){
+      controller.appendClubs(App.Club.createMany(data));
     });
 
-    this.store.findQuery('player', {q:this.searchTerm}).then(function(items){
-      controller.appendPlayers(items);
+    App.IO.getPlayers({q:this.searchTerm}).then(function(data){
+      controller.appendPlayers(App.Player.createMany(data));
     });
   }, 'searchTerm'),
 
@@ -204,33 +167,25 @@ App.IndexController = Ember.ObjectController.extend({
 
       var controller = this,
           clubs = this.get('clubs'),
-          length = clubs.get('length');
-          lastObject = clubs.objectAt(length-1);
+          length = clubs.length,
+          lastObject = clubs[length-1];
 
-      this.store.findQuery('club', 
-        {
-          q:this.searchTerm,
-          after:parseInt(lastObject.get('code')) || 0
-        }
-      ).then(function(items){
-        controller.appendClubs(items, true);
+      App.IO.getClubs({q:this.searchTerm, after:parseInt(lastObject.code) || 0}).then(function(data){
+        controller.appendClubs(App.Club.createMany(data, true));
       });
+
     },
     morePlayers: function() {
 
       var controller = this,
           players = this.get('players'),
-          length = players.get('length');
-          lastObject = players.objectAt(length-1);
+          length = players.length,
+          lastObject = players[length-1];
 
-      this.store.findQuery('player', 
-        {
-          q:this.searchTerm, 
-          after:parseInt(lastObject.get('code')) || 0
-        }
-      ).then(function(items){
-        controller.appendPlayers(items, true);
+      App.IO.getPlayers({q:this.searchTerm, after:parseInt(lastObject.code) || 0}).then(function(data){
+        controller.appendPlayers(App.Player.createMany(data), true);
       });
+
     }
   }
 
@@ -255,7 +210,7 @@ App.ClubsController = Ember.ObjectController.extend({
   appendClubs: function(items) {
     var objItems = [];
     for (var i = 0; i<items.length; i++) {
-      objItems.push(App.SClub.create(items[i]));
+      objItems.push(App.Club.create(items[i]));
     }
 
     this.get('clubs').pushObjects(objItems);
@@ -281,7 +236,7 @@ App.ClubsController = Ember.ObjectController.extend({
 
 App.ClubDetailsRoute = Ember.Route.extend({
   model: function(params){
-    return App.SClub.loadFromIO(params.club_id);
+    return App.Club.loadFromIO(params.club_id);
   },
   setupController: function(controller, club) {
     // when from linkTo, data is from club instance used in link
@@ -306,7 +261,7 @@ App.ClubDetailsController = Ember.ObjectController.extend({
     var items = data.players;
     var objItems = [];
     for (var i = 0; i<items.length; i++) {
-      objItems.push(App.SPlayer.createWithClub(items[i], data.clubs));
+      objItems.push(App.Player.createWithClub(items[i], data.clubs));
     }
 
     this.get('club_players').pushObjects(objItems);
@@ -356,7 +311,7 @@ App.PlayersController = Ember.ObjectController.extend({
     var items = data.players;
     var objItems = [];
     for (var i = 0; i<items.length; i++) {
-      objItems.push(App.SPlayer.createWithClub(items[i], data.clubs));
+      objItems.push(App.Player.createWithClub(items[i], data.clubs));
     }
 
     this.get('players').pushObjects(objItems);
@@ -381,12 +336,9 @@ App.PlayersController = Ember.ObjectController.extend({
 
 App.PlayerDetailsRoute = Ember.Route.extend({
   model: function(params){
-    console.log('player model from route')
-    return App.SPlayer.loadFromIO(params.player_id);
+    return App.Player.loadFromIO(params.player_id);
   },
   setupController: function(controller, player) {
-    console.log(player);
-    window.aaa=player;
     controller.set('model', player);
   }
 });
